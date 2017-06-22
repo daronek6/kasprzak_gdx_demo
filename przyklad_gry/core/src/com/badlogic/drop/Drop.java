@@ -18,22 +18,25 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.TimeUtils;
 
 public class Drop extends ApplicationAdapter {
-	private Texture dropImage;
-	private Texture bucketImage;
+	private Texture asteroidaImg;
+	private Texture statekImg;
+	private Texture laserImg;
 	//	private Sound dropSound;
 //	private Music rainMusic;
 	private SpriteBatch batch;
 	private OrthographicCamera camera;
-	private Rectangle bucket;
-	private Array<Rectangle> raindrops;
+	private Rectangle statek;
+	private Array<Rectangle> asteroidy;
+    private Array<Rectangle> lasery;
 	private long lastDropTime;
+    private long poprzedniStrzal = 0;
 
 	@Override
 	public void create() {
 		// load the images for the droplet and the bucket, 64x64 pixels each
-		dropImage = new Texture(Gdx.files.internal("droplet.png"));
-		bucketImage = new Texture(Gdx.files.internal("bucket.png"));
-
+		asteroidaImg = new Texture(Gdx.files.internal("asteroida.png"));
+		statekImg = new Texture(Gdx.files.internal("spaceship.png"));
+        laserImg = new Texture(Gdx.files.internal("laser.png"));
 		// load the drop sound effect and the rain background "music"
 		//dropSound = Gdx.audio.newSound(Gdx.files.internal("drop.wav"));
 		//rainMusic = Gdx.audio.newMusic(Gdx.files.internal("rain.mp3"));
@@ -44,28 +47,29 @@ public class Drop extends ApplicationAdapter {
 
 		// create the camera and the SpriteBatch
 		camera = new OrthographicCamera();
-		camera.setToOrtho(false, 800, 480);
+		camera.setToOrtho(false, 1240, 720);
 		batch = new SpriteBatch();
 
 		// create a Rectangle to logically represent the bucket
-		bucket = new Rectangle();
-		bucket.x = 800 / 2 - 64 / 2; // center the bucket horizontally
-		bucket.y = 20; // bottom left corner of the bucket is 20 pixels above the bottom screen edge
-		bucket.width = 64;
-		bucket.height = 64;
+		statek = new Rectangle();
+		statek.x = 1240 / 2 - 90 / 2; // center the bucket horizontally
+		statek.y = 20; // bottom left corner of the bucket is 20 pixels above the bottom screen edge
+		statek.width = 90;
+		statek.height = 150;
 
 		// create the raindrops array and spawn the first raindrop
-		raindrops = new Array<Rectangle>();
-		spawnRaindrop();
+		asteroidy = new Array<Rectangle>();
+        lasery = new Array<Rectangle>();
+		spawnAsteroida();
 	}
 
-	private void spawnRaindrop() {
-		Rectangle raindrop = new Rectangle();
-		raindrop.x = MathUtils.random(0, 800-64);
-		raindrop.y = 480;
-		raindrop.width = 64;
-		raindrop.height = 64;
-		raindrops.add(raindrop);
+	private void spawnAsteroida() {
+		Rectangle asteroida = new Rectangle();
+		asteroida.x = MathUtils.random(0, 1240-170);
+		asteroida.y = 720;
+		asteroida.width = 110;
+		asteroida.height = 100;
+		asteroidy.add(asteroida);
 		lastDropTime = TimeUtils.nanoTime();
 	}
 
@@ -88,10 +92,13 @@ public class Drop extends ApplicationAdapter {
 		// begin a new batch and draw the bucket and
 		// all drops
 		batch.begin();
-		batch.draw(bucketImage, bucket.x, bucket.y);
-		for(Rectangle raindrop: raindrops) {
-			batch.draw(dropImage, raindrop.x, raindrop.y);
+		batch.draw(statekImg, statek.x, statek.y);
+		for(Rectangle asteroida: asteroidy) {
+			batch.draw(asteroidaImg, asteroida.x, asteroida.y);
 		}
+		for(Rectangle laser: lasery) {
+            batch.draw(laserImg,laser.x,laser.y);
+        }
 		batch.end();
 
 		// process user input
@@ -99,38 +106,66 @@ public class Drop extends ApplicationAdapter {
 			Vector3 touchPos = new Vector3();
 			touchPos.set(Gdx.input.getX(), Gdx.input.getY(), 0);
 			camera.unproject(touchPos);
-			bucket.x = touchPos.x - 64 / 2;
+			statek.x = touchPos.x - 90 / 2;
+            //strzal();
 		}
-		if(Gdx.input.isKeyPressed(Keys.LEFT)) bucket.x -= 200 * Gdx.graphics.getDeltaTime();
-		if(Gdx.input.isKeyPressed(Keys.RIGHT)) bucket.x += 200 * Gdx.graphics.getDeltaTime();
+		if(Gdx.input.isKeyPressed(Keys.LEFT)) statek.x -= 200 * Gdx.graphics.getDeltaTime();
+		if(Gdx.input.isKeyPressed(Keys.RIGHT)) statek.x += 200 * Gdx.graphics.getDeltaTime();
+        if(Gdx.input.isKeyPressed(Keys.UP)) strzal();
 
 		// make sure the bucket stays within the screen bounds
-		if(bucket.x < 0) bucket.x = 0;
-		if(bucket.x > 800 - 64) bucket.x = 800 - 64;
+		if(statek.x < 0) statek.x = 0;
+		if(statek.x > 1240 - 90) statek.x = 1240 - 90;
 
 		// check if we need to create a new raindrop
-		if(TimeUtils.nanoTime() - lastDropTime > 1000000000) spawnRaindrop();
+		if(TimeUtils.nanoTime() - lastDropTime > 1000000000) spawnAsteroida();
 
 		// move the raindrops, remove any that are beneath the bottom edge of
 		// the screen or that hit the bucket. In the later case we play back
 		// a sound effect as well.
-		Iterator<Rectangle> iter = raindrops.iterator();
+        Iterator<Rectangle> iterLasery = lasery.iterator();
+        while(iterLasery.hasNext()) {
+            Rectangle laser = iterLasery.next();
+            laser.y += 200 * Gdx.graphics.getDeltaTime();
+            if(laser.y > 720) iterLasery.remove();
+        }
+
+		Iterator<Rectangle> iter = asteroidy.iterator();
 		while(iter.hasNext()) {
-			Rectangle raindrop = iter.next();
-			raindrop.y -= 200 * Gdx.graphics.getDeltaTime();
-			if(raindrop.y + 64 < 0) iter.remove();
-			if(raindrop.overlaps(bucket)) {
+			Rectangle asteroida = iter.next();
+			asteroida.y -= 150 * Gdx.graphics.getDeltaTime();
+			if(asteroida.y + 100 < 0) iter.remove();
+			if(asteroida.overlaps(statek)) {
 				//	dropSound.play();
 				iter.remove();
 			}
 		}
 	}
 
-	@Override
+    private void strzal() {
+        Rectangle laser = new Rectangle();
+        if(poprzedniStrzal == 0) {
+            laser.x = (statek.x + statek.width / 2) - 26 / 2;
+            laser.y = statek.height;
+            laser.width = 26;
+            laser.height = 90;
+        }
+        else if(TimeUtils.millis() - poprzedniStrzal > 1000) {
+            laser.x = (statek.x + statek.width / 2) - 26 / 2;
+            laser.y = statek.height;
+            laser.width = 26;
+            laser.height = 90;
+        }
+        lasery.add(laser);
+        poprzedniStrzal = TimeUtils.millis();
+    }
+
+    @Override
 	public void dispose() {
 		// dispose of all the native resources
-		dropImage.dispose();
-		bucketImage.dispose();
+		statekImg.dispose();
+		asteroidaImg.dispose();
+        laserImg.dispose();
 		//dropSound.dispose();
 		//	rainMusic.dispose();
 		batch.dispose();
